@@ -2,13 +2,14 @@
 #include <cstdint>
 #include <cstdlib>
 #include "Store.h"
+#include "utils_native.h"
 
 /**
  * Contains the unique store instance in a static variable created
  * when library is loaded.
  */
 static Store gStore;
-
+static jobject gLock;
 static jclass StringClass;
 static jclass ColorClass;
 
@@ -16,9 +17,9 @@ static jmethodID MethodOnSuccessInt;
 static jmethodID MethodOnSuccessString;
 static jmethodID MethodOnSuccessColor;
 
-JNIEXPORT jint JNI_OnLoad(JavaVM* pVM, void* reserved) {
+JNIEXPORT jint JNI_OnLoad(JavaVM *pVM, void *reserved) {
     JNIEnv *env;
-    if (pVM->GetEnv((void**) &env, JNI_VERSION_1_6) != JNI_OK) {
+    if (pVM->GetEnv((void **) &env, JNI_VERSION_1_6) != JNI_OK) {
         abort();
     }
 
@@ -38,17 +39,38 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* pVM, void* reserved) {
     if (StoreClass == NULL) abort();
 
     MethodOnSuccessInt = env->GetMethodID(StoreClass, "onSuccess",
-            "(I)V");
+                                          "(I)V");
     if (MethodOnSuccessInt == NULL) abort();
 
     MethodOnSuccessString = env->GetMethodID(StoreClass, "onSuccess",
-            "(Ljava/lang/String;)V");
+                                             "(Ljava/lang/String;)V");
     if (MethodOnSuccessString == NULL) abort();
 
     MethodOnSuccessColor = env->GetMethodID(StoreClass, "onSuccess",
-            "(Lcom/packtpub/store/Color;)V");
+                                            "(Lcom/packtpub/store/Color;)V");
     if (MethodOnSuccessColor == NULL) abort();
     env->DeleteLocalRef(StoreClass);
+
+    jclass objectClass = env->FindClass("java/lang/Object");
+    if (objectClass == NULL) abort();
+    jmethodID ctor = env->GetMethodID(objectClass, "<init>", "()V");
+    if (ctor == NULL) abort();
+    jobject objTmp = env->NewObject(objectClass, ctor);
+    env->DeleteLocalRef(objectClass);
+    gLock = env->NewGlobalRef(objTmp);
+    env->DeleteLocalRef(objTmp);
+
+
+    jclass storeThreadSafeClass = env->FindClass("com/packtpub/store/StoreThreadSafe");
+
+    if (storeThreadSafeClass == NULL) abort();
+    jfieldID lockFiled = env->GetStaticFieldID(storeThreadSafeClass, "LOCK", "Ljava/lang/Object;");
+
+    if (lockFiled == NULL) abort();
+
+    env->SetStaticObjectField(storeThreadSafeClass, lockFiled, gLock);
+
+    env->DeleteLocalRef(storeThreadSafeClass);
 
     // Store initialization.
     gStore.mLength = 0;
@@ -56,13 +78,13 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* pVM, void* reserved) {
 }
 
 JNIEXPORT jint JNICALL Java_com_packtpub_store_Store_getCount
-  (JNIEnv* pEnv, jobject pObject) {
+        (JNIEnv *pEnv, jobject pObject) {
     return gStore.mLength;
 }
 
 JNIEXPORT jboolean JNICALL Java_com_packtpub_store_Store_getBoolean
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_Boolean)) {
         return entry->mValue.mBoolean;
     } else {
@@ -71,8 +93,8 @@ JNIEXPORT jboolean JNICALL Java_com_packtpub_store_Store_getBoolean
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setBoolean
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jboolean pBoolean) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jboolean pBoolean) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         entry->mType = StoreType_Boolean;
         entry->mValue.mBoolean = pBoolean;
@@ -80,8 +102,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setBoolean
 }
 
 JNIEXPORT jbyte JNICALL Java_com_packtpub_store_Store_getByte
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_Byte)) {
         return entry->mValue.mByte;
     } else {
@@ -90,8 +112,8 @@ JNIEXPORT jbyte JNICALL Java_com_packtpub_store_Store_getByte
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setByte
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jbyte pByte) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jbyte pByte) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         entry->mType = StoreType_Byte;
         entry->mValue.mByte = pByte;
@@ -99,8 +121,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setByte
 }
 
 JNIEXPORT jchar JNICALL Java_com_packtpub_store_Store_getChar
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_Char)) {
         return entry->mValue.mChar;
     } else {
@@ -109,8 +131,8 @@ JNIEXPORT jchar JNICALL Java_com_packtpub_store_Store_getChar
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setChar
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jchar pChar) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jchar pChar) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         entry->mType = StoreType_Char;
         entry->mValue.mChar = pChar;
@@ -118,8 +140,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setChar
 }
 
 JNIEXPORT jdouble JNICALL Java_com_packtpub_store_Store_getDouble
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_Double)) {
         return entry->mValue.mDouble;
     } else {
@@ -128,8 +150,8 @@ JNIEXPORT jdouble JNICALL Java_com_packtpub_store_Store_getDouble
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setDouble
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jdouble pDouble) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jdouble pDouble) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         entry->mType = StoreType_Double;
         entry->mValue.mDouble = pDouble;
@@ -137,8 +159,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setDouble
 }
 
 JNIEXPORT jfloat JNICALL Java_com_packtpub_store_Store_getFloat
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_Float)) {
         return entry->mValue.mFloat;
     } else {
@@ -147,8 +169,8 @@ JNIEXPORT jfloat JNICALL Java_com_packtpub_store_Store_getFloat
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setFloat
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jfloat pFloat) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jfloat pFloat) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         entry->mType = StoreType_Float;
         entry->mValue.mFloat = pFloat;
@@ -156,8 +178,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setFloat
 }
 
 JNIEXPORT jint JNICALL Java_com_packtpub_store_Store_getInteger
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_Integer)) {
         return entry->mValue.mInteger;
     } else {
@@ -166,20 +188,20 @@ JNIEXPORT jint JNICALL Java_com_packtpub_store_Store_getInteger
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setInteger
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jint pInteger) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jint pInteger) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         entry->mType = StoreType_Integer;
         entry->mValue.mInteger = pInteger;
 
         pEnv->CallVoidMethod(pThis, MethodOnSuccessInt,
-                (jint) entry->mValue.mInteger);
+                             (jint) entry->mValue.mInteger);
     }
 }
 
 JNIEXPORT jlong JNICALL Java_com_packtpub_store_Store_getLong
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_Long)) {
         return entry->mValue.mLong;
     } else {
@@ -188,8 +210,8 @@ JNIEXPORT jlong JNICALL Java_com_packtpub_store_Store_getLong
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setLong
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jlong pLong) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jlong pLong) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         entry->mType = StoreType_Long;
         entry->mValue.mLong = pLong;
@@ -197,8 +219,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setLong
 }
 
 JNIEXPORT jshort JNICALL Java_com_packtpub_store_Store_getShort
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_Short)) {
         return entry->mValue.mShort;
     } else {
@@ -207,8 +229,8 @@ JNIEXPORT jshort JNICALL Java_com_packtpub_store_Store_getShort
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setShort
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jshort pShort) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jshort pShort) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         entry->mType = StoreType_Short;
         entry->mValue.mShort = pShort;
@@ -216,8 +238,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setShort
 }
 
 JNIEXPORT jstring JNICALL Java_com_packtpub_store_Store_getString
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_String)) {
         // Converts a C string into a Java String.
         return pEnv->NewStringUTF(entry->mValue.mString);
@@ -227,9 +249,9 @@ JNIEXPORT jstring JNICALL Java_com_packtpub_store_Store_getString
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setString
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jstring pString) {
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jstring pString) {
     // Turns the Java string into a temporary C string.
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         entry->mType = StoreType_String;
         // Copy the temporary C string into its dynamically allocated
@@ -243,13 +265,13 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setString
         entry->mValue.mString[stringLength] = '\0';
 
         pEnv->CallVoidMethod(pThis, MethodOnSuccessString,
-                (jstring) pEnv->NewStringUTF(entry->mValue.mString));
+                             (jstring) pEnv->NewStringUTF(entry->mValue.mString));
     }
 }
 
 JNIEXPORT jobject JNICALL Java_com_packtpub_store_Store_getColor
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_Color)) {
         return entry->mValue.mColor;
     } else {
@@ -258,9 +280,9 @@ JNIEXPORT jobject JNICALL Java_com_packtpub_store_Store_getColor
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setColor
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jobject pColor) {
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jobject pColor) {
     // Save the Color reference in the store.
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         entry->mType = StoreType_Color;
         // The Java Color is going to be stored on the native side.
@@ -269,14 +291,14 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setColor
         entry->mValue.mColor = pEnv->NewGlobalRef(pColor);
 
         pEnv->CallVoidMethod(pThis, MethodOnSuccessColor,
-                (jstring) entry->mValue.mColor);
+                             (jstring) entry->mValue.mColor);
     }
 }
 
 JNIEXPORT jbooleanArray JNICALL
 Java_com_packtpub_store_Store_getBooleanArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_BooleanArray)) {
         jbooleanArray javaArray =
                 pEnv->NewBooleanArray(entry->mLength);
@@ -289,17 +311,17 @@ Java_com_packtpub_store_Store_getBooleanArray
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setBooleanArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey,
-   jbooleanArray pBooleanArray) {
+        (JNIEnv *pEnv, jobject pThis, jstring pKey,
+         jbooleanArray pBooleanArray) {
     // Finds/creates an entry in the store and fills its content.
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         entry->mType = StoreType_BooleanArray;
         jsize length = pEnv->GetArrayLength(pBooleanArray);
-        uint8_t* array = new uint8_t[length];
+        uint8_t *array = new uint8_t[length];
 
         // Retrieves array content.
-        jboolean* arrayTmp = pEnv->GetBooleanArrayElements(
+        jboolean *arrayTmp = pEnv->GetBooleanArrayElements(
                 pBooleanArray, NULL);
         memcpy(array, arrayTmp, length * sizeof(uint8_t));
         pEnv->ReleaseBooleanArrayElements(pBooleanArray, arrayTmp, 0);
@@ -312,8 +334,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setBooleanArray
 
 JNIEXPORT jbyteArray JNICALL
 Java_com_packtpub_store_Store_getByteArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_ByteArray)) {
         jbyteArray javaArray = pEnv->NewByteArray(entry->mLength);
         pEnv->SetByteArrayRegion(javaArray, 0, entry->mLength,
@@ -325,13 +347,13 @@ Java_com_packtpub_store_Store_getByteArray
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setByteArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jbyteArray pByteArray) {
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jbyteArray pByteArray) {
     // Creates a new store entry containing the C array.
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         // Allocates a C array with the same size as the Java array.
         jsize length = pEnv->GetArrayLength(pByteArray);
-        int8_t* array = new int8_t[length];
+        int8_t *array = new int8_t[length];
         // Copies Java array content directly in this new C array.
         pEnv->GetByteArrayRegion(pByteArray, 0, length, array);
 
@@ -342,8 +364,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setByteArray
 }
 
 JNIEXPORT jcharArray JNICALL Java_com_packtpub_store_Store_getCharArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_CharArray)) {
         jcharArray javaArray = pEnv->NewCharArray(entry->mLength);
         pEnv->SetCharArrayRegion(javaArray, 0, entry->mLength,
@@ -355,11 +377,11 @@ JNIEXPORT jcharArray JNICALL Java_com_packtpub_store_Store_getCharArray
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setCharArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jcharArray pCharArray) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jcharArray pCharArray) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         jsize length = pEnv->GetArrayLength(pCharArray);
-        uint16_t* array = new uint16_t[length];
+        uint16_t *array = new uint16_t[length];
         pEnv->GetCharArrayRegion(pCharArray, 0, length, array);
 
         entry->mType = StoreType_CharArray;
@@ -370,8 +392,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setCharArray
 
 JNIEXPORT jdoubleArray JNICALL
 Java_com_packtpub_store_Store_getDoubleArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_DoubleArray)) {
         jdoubleArray javaArray = pEnv->NewDoubleArray(entry->mLength);
         pEnv->SetDoubleArrayRegion(javaArray, 0, entry->mLength,
@@ -383,12 +405,12 @@ Java_com_packtpub_store_Store_getDoubleArray
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setDoubleArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey,
- jdoubleArray pDoubleArray) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey,
+         jdoubleArray pDoubleArray) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         jsize length = pEnv->GetArrayLength(pDoubleArray);
-        double* array = new double[length];
+        double *array = new double[length];
         pEnv->GetDoubleArrayRegion(pDoubleArray, 0, length, array);
 
         entry->mType = StoreType_DoubleArray;
@@ -399,8 +421,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setDoubleArray
 
 JNIEXPORT jfloatArray JNICALL
 Java_com_packtpub_store_Store_getFloatArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_FloatArray)) {
         jfloatArray javaArray = pEnv->NewFloatArray(entry->mLength);
         pEnv->SetFloatArrayRegion(javaArray, 0, entry->mLength,
@@ -412,12 +434,12 @@ Java_com_packtpub_store_Store_getFloatArray
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setFloatArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey,
-   jfloatArray pFloatArray) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey,
+         jfloatArray pFloatArray) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         jsize length = pEnv->GetArrayLength(pFloatArray);
-        float* array = new float[length];
+        float *array = new float[length];
         pEnv->GetFloatArrayRegion(pFloatArray, 0, length, array);
 
         entry->mType = StoreType_FloatArray;
@@ -428,8 +450,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setFloatArray
 
 JNIEXPORT jintArray JNICALL
 Java_com_packtpub_store_Store_getIntegerArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_IntegerArray)) {
         jintArray javaArray = pEnv->NewIntArray(entry->mLength);
         pEnv->SetIntArrayRegion(javaArray, 0, entry->mLength,
@@ -441,12 +463,12 @@ Java_com_packtpub_store_Store_getIntegerArray
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setIntegerArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey,
-   jintArray pIntegerArray) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey,
+         jintArray pIntegerArray) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         jsize length = pEnv->GetArrayLength(pIntegerArray);
-        int32_t* array = new int32_t[length];
+        int32_t *array = new int32_t[length];
         pEnv->GetIntArrayRegion(pIntegerArray, 0, length, array);
 
         entry->mType = StoreType_IntegerArray;
@@ -457,8 +479,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setIntegerArray
 
 JNIEXPORT jlongArray JNICALL
 Java_com_packtpub_store_Store_getLongArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_LongArray)) {
         jlongArray javaArray = pEnv->NewLongArray(entry->mLength);
         pEnv->SetLongArrayRegion(javaArray, 0, entry->mLength,
@@ -470,11 +492,11 @@ Java_com_packtpub_store_Store_getLongArray
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setLongArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey, jlongArray pLongArray) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey, jlongArray pLongArray) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         jsize length = pEnv->GetArrayLength(pLongArray);
-        int64_t* array = new int64_t[length];
+        int64_t *array = new int64_t[length];
         pEnv->GetLongArrayRegion(pLongArray, 0, length, array);
 
         entry->mType = StoreType_LongArray;
@@ -485,8 +507,8 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setLongArray
 
 JNIEXPORT jshortArray JNICALL
 Java_com_packtpub_store_Store_getShortArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_ShortArray)) {
         jshortArray javaArray = pEnv->NewShortArray(entry->mLength);
         pEnv->SetShortArrayRegion(javaArray, 0, entry->mLength,
@@ -498,12 +520,12 @@ Java_com_packtpub_store_Store_getShortArray
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setShortArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey,
-   jshortArray pShortArray) {
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey,
+         jshortArray pShortArray) {
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         jsize length = pEnv->GetArrayLength(pShortArray);
-        int16_t* array = new int16_t[length];
+        int16_t *array = new int16_t[length];
         pEnv->GetShortArrayRegion(pShortArray, 0, length, array);
 
         entry->mType = StoreType_ShortArray;
@@ -514,12 +536,12 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setShortArray
 
 JNIEXPORT jobjectArray JNICALL
 Java_com_packtpub_store_Store_getStringArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_StringArray)) {
         // An array of String in Java is in fact an array of object.
         jobjectArray javaArray = pEnv->NewObjectArray(entry->mLength,
-                StringClass, NULL);
+                                                      StringClass, NULL);
 
         // Creates a new Java String object for each C string stored.
         // Reference to the String can be removed right after it is
@@ -540,25 +562,25 @@ Java_com_packtpub_store_Store_getStringArray
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setStringArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey,
-   jobjectArray pStringArray) {
+        (JNIEnv *pEnv, jobject pThis, jstring pKey,
+         jobjectArray pStringArray) {
     // Creates a new entry with the new String array.
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         // Allocates an array of C string.
         jsize length = pEnv->GetArrayLength(pStringArray);
-        char** array = new char*[length];
+        char **array = new char *[length];
         // Fills the C array with a copy of each input Java string.
         for (int32_t i = 0; i < length; ++i) {
             // Gets the current Java String from the input Java array.
             // Object arrays can be accessed element by element only.
             jstring string = (jstring)
-                         pEnv->GetObjectArrayElement(pStringArray, i);
+                    pEnv->GetObjectArrayElement(pStringArray, i);
 
             jsize stringLength = pEnv->GetStringUTFLength(string);
             array[i] = new char[stringLength + 1];
             // Directly copies the Java String into our new C buffer.
-            pEnv->GetStringUTFRegion(string,0,stringLength, array[i]);
+            pEnv->GetStringUTFRegion(string, 0, stringLength, array[i]);
             // Append the null character for string termination.
             array[i][stringLength] = '\0';
 
@@ -574,12 +596,12 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setStringArray
 
 JNIEXPORT jobjectArray JNICALL
 Java_com_packtpub_store_Store_getColorArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey) {
-    StoreEntry* entry = findEntry(pEnv, &gStore, pKey);
+        (JNIEnv *pEnv, jobject pThis, jstring pKey) {
+    StoreEntry *entry = findEntry(pEnv, &gStore, pKey);
     if (isEntryValid(pEnv, entry, StoreType_ColorArray)) {
         // Creates a new array with objects of type Id.
         jobjectArray javaArray = pEnv->NewObjectArray(entry->mLength,
-                ColorClass, NULL);
+                                                      ColorClass, NULL);
 
         // Fills the array with the Color objects stored on the native
         // side, which keeps a global reference to them. So no need
@@ -595,14 +617,14 @@ Java_com_packtpub_store_Store_getColorArray
 }
 
 JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setColorArray
-  (JNIEnv* pEnv, jobject pThis, jstring pKey,
-   jobjectArray pColorArray) {
+        (JNIEnv *pEnv, jobject pThis, jstring pKey,
+         jobjectArray pColorArray) {
     // Saves the Color array in the store.
-    StoreEntry* entry = allocateEntry(pEnv, &gStore, pKey);
+    StoreEntry *entry = allocateEntry(pEnv, &gStore, pKey);
     if (entry != NULL) {
         // Allocates a C array of Color objects.
         jsize length = pEnv->GetArrayLength(pColorArray);
-        jobject* array = new jobject[length];
+        jobject *array = new jobject[length];
         // Fills the C array with a copy of each input Java Color.
         for (int32_t i = 0; i < length; ++i) {
             // Gets the current Color object from the input Java array.
@@ -622,4 +644,24 @@ JNIEXPORT void JNICALL Java_com_packtpub_store_Store_setColorArray
         entry->mLength = length;
         entry->mValue.mColorArray = array;
     }
+}
+
+
+JNIEXPORT jlong JNICALL Java_com_packtpub_store_Store_startWatcher
+        (JNIEnv *pEnv, jobject pThis) {
+    JavaVM *javaVM;
+
+    if (pEnv->GetJavaVM(&javaVM) != JNI_OK) abort();
+
+
+    StoreWatcher *watcher = startWatcher(javaVM, &gStore, gLock);
+    return (jlong) watcher;
+
+
+}
+
+
+JNIEXPORT void JNICALL Java_com_packtpub_store_Store_stopWatcher
+        (JNIEnv *pEnv, jobject pThis, jlong pWatcher) {
+    stopWatcher((StoreWatcher *) pWatcher);
 }

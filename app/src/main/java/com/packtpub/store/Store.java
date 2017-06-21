@@ -1,5 +1,7 @@
 package com.packtpub.store;
 
+import android.util.Log;
+
 import com.packtpub.exception.InvalidTypeException;
 import com.packtpub.exception.NotExistingKeyException;
 
@@ -10,9 +12,7 @@ public class Store implements StoreListener {
         mListener = pListener;
     }
 
-    static {
-        System.loadLibrary("com_packtpub_store_Store");
-    }
+
 
     public native int getCount();
 
@@ -99,6 +99,12 @@ public class Store implements StoreListener {
     public native Color[] getColorArray(String pKey)
         throws NotExistingKeyException, InvalidTypeException;
     public native void setColorArray(String pKey,Color[] pColorArray);
+
+
+    public native long startWatcher();
+
+    public native void stopWatcher(long pPointer);
+
 
     @Override
     public void onSuccess(int pValue) {
